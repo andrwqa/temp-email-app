@@ -6,17 +6,17 @@ import { Card, CardContent } from "@/components/ui/card"
 import { RefreshCw, Copy, Mail, ArrowLeft, Inbox } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { toast } from "@/components/ui/use-toast"
+import { format, parseISO } from 'date-fns'
 
 const TimeTicker = ({ value }: { value: number }) => {
-  const hours = Math.floor(value / 3600)
-  const minutes = Math.floor((value % 3600) / 60)
+  const minutes = Math.floor(value / 60)
   const seconds = value % 60
 
   const formatNumber = (num: number) => num.toString().padStart(2, '0')
 
   return (
     <div className="flex justify-center items-center space-x-2">
-      {[hours, minutes, seconds].map((time, index) => (
+      {[minutes, seconds].map((time, index) => (
         <div key={index} className="flex flex-col items-center">
           <AnimatePresence mode="popLayout">
             <motion.span
@@ -25,13 +25,13 @@ const TimeTicker = ({ value }: { value: number }) => {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: -20, opacity: 0 }}
               transition={{ duration: 0.3 }}
-              className="text-4xl font-bold tabular-nums"
+              className="text-6xl font-bold tabular-nums"
             >
               {formatNumber(time)}
             </motion.span>
           </AnimatePresence>
-          <span className="text-xs text-gray-500">
-            {index === 0 ? 'hours' : index === 1 ? 'minutes' : 'seconds'}
+          <span className="text-sm text-gray-500">
+            {index === 0 ? 'minutes' : 'seconds'}
           </span>
         </div>
       ))}
@@ -40,69 +40,176 @@ const TimeTicker = ({ value }: { value: number }) => {
 }
 
 export default function Component() {
-  const [email, setEmail] = useState("user123@tempemail.com")
-  const [messages, setMessages] = useState([
-    { id: 1, from: "service@example.com", subject: "Welcome to our service!", time: "10:30 AM", body: "Welcome to our service! We're excited to have you on board.", read: false },
-    { id: 2, from: "noreply@website.com", subject: "Confirm your account", time: "11:45 AM", body: "Please confirm your account by clicking the link below.", read: false },
-  ])
-  const [timeLeft, setTimeLeft] = useState(3600) // 1 hour in seconds
+  const [email, setEmail] = useState<string | null>(null)
+  const [messages, setMessages] = useState([])
+  const [timeLeft, setTimeLeft] = useState<number | null>(null)
   const [selectedEmail, setSelectedEmail] = useState(null)
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft((prevTime) => (prevTime > 0 ? prevTime - 1 : 0))
-    }, 1000)
-    return () => clearInterval(timer)
+    // Initialize email and timeLeft on the client side
+    const storedEmail = localStorage.getItem('tempEmail')
+    const storedTime = localStorage.getItem('timeLeft')
+    
+    if (storedEmail) {
+      setEmail(storedEmail)
+    } else {
+      const newEmail = `user${Math.floor(Math.random() * 1000)}@tempemail.com`
+      setEmail(newEmail)
+      localStorage.setItem('tempEmail', newEmail)
+    }
+
+    if (storedTime) {
+      setTimeLeft(parseInt(storedTime))
+    } else {
+      setTimeLeft(600) // 10 minutes in seconds
+      localStorage.setItem('timeLeft', '600')
+    }
   }, [])
 
+  useEffect(() => {
+    if (timeLeft === null) return
+
+    const timer = setInterval(() => {
+      setTimeLeft((prevTime) => {
+        if (prevTime === null) return null
+        const newTime = prevTime > 0 ? prevTime - 1 : 0
+        localStorage.setItem('timeLeft', newTime.toString())
+        return newTime
+      })
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [timeLeft])
+
+  useEffect(() => {
+    if (timeLeft === 0) {
+      refreshEmail()
+    }
+  }, [timeLeft])
+
+  useEffect(() => {
+    if (!email) return
+
+    const fetchEmails = async () => {
+      try {
+        const response = await fetch(`/api/emails?address=${email}`)
+        if (response.ok) {
+          const newEmails = await response.json()
+          console.log('Fetched emails:', newEmails)
+          // Apply read state from localStorage
+          const readEmails = JSON.parse(localStorage.getItem('readEmails') || '{}')
+          const updatedEmails = newEmails.map(email => ({
+            ...email,
+            read: readEmails[email.id] || false
+          }))
+          setMessages(updatedEmails)
+        }
+      } catch (error) {
+        console.error("Failed to fetch emails:", error)
+      }
+    }
+
+    fetchEmails()
+
+    const eventSource = new EventSource(`/api/emails?address=${email}&sse=true`)
+
+    eventSource.onmessage = (event) => {
+      console.log('SSE message received:', event.data)
+      const newEmail = JSON.parse(event.data)
+      setMessages(prevMessages => {
+        const emailExists = prevMessages.some(msg => msg.id === newEmail.id)
+        if (!emailExists) {
+          console.log('Adding new email to messages:', newEmail)
+          return [...prevMessages, { ...newEmail, read: false }]
+        }
+        return prevMessages
+      })
+    }
+
+    eventSource.onerror = (error) => {
+      console.error("SSE error:", error)
+      eventSource.close()
+    }
+
+    return () => {
+      eventSource.close()
+    }
+  }, [email])
+
   const refreshEmail = () => {
-    setEmail(`user${Math.floor(Math.random() * 1000)}@tempemail.com`)
+    const newEmail = `user${Math.floor(Math.random() * 1000)}@tempemail.com`
+    setEmail(newEmail)
     setMessages([])
-    setTimeLeft(3600)
+    setTimeLeft(600)
+    localStorage.setItem('timeLeft', '600')
+    localStorage.setItem('tempEmail', newEmail)
   }
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(email)
-    toast({
-      title: "Email copied",
-      description: "The email address has been copied to your clipboard.",
-    })
+    if (email) {
+      navigator.clipboard.writeText(email)
+      toast({
+        title: "Email copied",
+        description: "The email address has been copied to your clipboard.",
+      })
+    }
   }
 
-  const openEmail = (message: { id: number; from: string; subject: string; time: string; body: string; read: boolean }) => {
+  const openEmail = (message) => {
     setSelectedEmail(message)
-    setMessages(messages.map(m => m.id === message.id ? {...m, read: true} : m))
+    // Mark email as read
+    setMessages(prevMessages =>
+      prevMessages.map(msg =>
+        msg.id === message.id ? { ...msg, read: true } : msg
+      )
+    )
+    // Save read state to localStorage
+    const readEmails = JSON.parse(localStorage.getItem('readEmails') || '{}')
+    readEmails[message.id] = true
+    localStorage.setItem('readEmails', JSON.stringify(readEmails))
+  }
+
+  const formatDate = (isoString: string) => {
+    const date = parseISO(isoString)
+    return format(date, 'PPpp') // This will format the date as "Aug 25, 2024, 5:02 PM"
+  }
+
+  const formatShortDate = (isoString: string) => {
+    const date = parseISO(isoString)
+    return format(date, 'p') // This will format the date as "5:02 PM"
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-900 flex flex-col p-4 font-sans">
+    <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col p-4">
       <motion.header 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
         className="text-center mb-8"
       >
-        <h1 className="text-4xl font-bold text-gray-900">TempEmail</h1>
+        <h1 className="text-4xl font-bold">TempEmail</h1>
         <p className="text-gray-600">Disposable email for your temporary needs</p>
       </motion.header>
 
       <main className="flex-grow container mx-auto max-w-3xl">
-        <Card className="mb-8 overflow-hidden bg-white border border-gray-200">
+        <Card className="mb-8 overflow-hidden bg-gradient-to-r from-blue-500 to-purple-600 text-white">
           <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0">
-              <motion.div 
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.5, delay: 0.2 }}
-                className="font-mono text-lg md:text-xl break-all max-w-xs md:max-w-md"
-              >
-                {email}
-              </motion.div>
-              <div className="flex space-x-2">
-                <Button onClick={copyToClipboard} variant="outline" size="icon" aria-label="Copy email address">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+              <div className="col-span-2">
+                <motion.div 
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.5, delay: 0.2 }}
+                  className="font-mono text-xl md:text-2xl break-all"
+                >
+                  {email || 'Loading...'}
+                </motion.div>
+              </div>
+              <div className="flex space-x-2 justify-end">
+                <Button onClick={copyToClipboard} variant="secondary" size="icon" aria-label="Copy email address">
                   <Copy className="h-4 w-4" />
                 </Button>
-                <Button onClick={refreshEmail} variant="outline" size="icon" aria-label="Get new email address">
+                <Button onClick={refreshEmail} variant="secondary" size="icon" aria-label="Get new email address">
                   <RefreshCw className="h-4 w-4" />
                 </Button>
               </div>
@@ -110,15 +217,10 @@ export default function Component() {
           </CardContent>
         </Card>
 
-        <motion.div 
-          className="text-center mb-8"
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5 }}
-        >
+        <div className="text-center mb-8">
           <p className="text-gray-600 mb-2">Time remaining:</p>
-          <TimeTicker value={timeLeft} />
-        </motion.div>
+          {timeLeft !== null && <TimeTicker value={timeLeft} />}
+        </div>
 
         <AnimatePresence mode="wait">
           {selectedEmail ? (
@@ -169,15 +271,15 @@ export default function Component() {
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.5 }}
-                          className={`flex items-center space-x-4 p-4 rounded-lg cursor-pointer transition-all duration-200 ${message.read ? 'bg-gray-100' : 'bg-white shadow-sm hover:shadow-md'}`}
+                          className="flex items-center space-x-4 p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 cursor-pointer"
                           onClick={() => openEmail(message)}
                         >
-                          <Mail className={`h-6 w-6 flex-shrink-0 ${message.read ? 'text-gray-400' : 'text-gray-600'}`} aria-hidden="true" />
+                          <Mail className="h-6 w-6 text-gray-400 flex-shrink-0" aria-hidden="true" />
                           <div className="flex-1 min-w-0">
-                            <p className={`text-sm font-medium truncate ${message.read ? 'text-gray-600' : 'text-gray-900'}`}>{message.from}</p>
+                            <p className="text-sm font-medium truncate">{message.from}</p>
                             <p className="text-sm text-gray-500 truncate">{message.subject}</p>
                           </div>
-                          <div className="text-xs text-gray-500">{message.time}</div>
+                          <div className="text-sm text-gray-500">{formatShortDate(message.time)}</div>
                         </motion.li>
                       ))}
                     </ul>
@@ -190,7 +292,7 @@ export default function Component() {
       </main>
 
       <footer className="mt-8 text-center text-sm text-gray-500">
-        © 2023 TempEmail. All rights reserved. Emails auto-delete after 1 hour.
+        © 2023 TempEmail. All rights reserved. Emails auto-delete after 10 minutes.
       </footer>
     </div>
   )

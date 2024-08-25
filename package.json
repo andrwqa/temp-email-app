@@ -6,18 +6,24 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "dev:all": "concurrently \"next dev\" \"node smtp-server.js\""
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.1.0",
     "@radix-ui/react-toast": "^1.2.1",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "concurrently": "^8.0.1",
+    "date-fns": "^3.6.0",
     "framer-motion": "^11.3.30",
     "lucide-react": "^0.435.0",
-    "next": "14.2.6",
+    "mailparser": "^3.7.1",
+    "next": "^14.2.6",
+    "node-fetch": "^2.7.0",
     "react": "^18",
     "react-dom": "^18",
+    "smtp-server": "^3.13.4",
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.7"
   },
