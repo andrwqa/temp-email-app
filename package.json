@@ -20,6 +20,7 @@
     "lucide-react": "^0.435.0",
     "mailparser": "^3.7.1",
     "next": "^14.2.6",
+    "next-themes": "^0.3.0",
     "node-fetch": "^2.7.0",
     "react": "^18",
     "react-dom": "^18",

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { RefreshCw, Copy, Mail, ArrowLeft, Inbox } from "lucide-react"
+import { RefreshCw, Copy, Mail, ArrowLeft, Inbox, Check } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { toast } from "@/components/ui/use-toast"
 import { format, parseISO } from 'date-fns'
@@ -15,26 +15,34 @@ const TimeTicker = ({ value }: { value: number }) => {
   const formatNumber = (num: number) => num.toString().padStart(2, '0')
 
   return (
-    <div className="flex justify-center items-center space-x-2">
-      {[minutes, seconds].map((time, index) => (
-        <div key={index} className="flex flex-col items-center">
-          <AnimatePresence mode="popLayout">
-            <motion.span
-              key={time}
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: -20, opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              className="text-6xl font-bold tabular-nums"
-            >
-              {formatNumber(time)}
-            </motion.span>
-          </AnimatePresence>
-          <span className="text-sm text-gray-500">
-            {index === 0 ? 'minutes' : 'seconds'}
-          </span>
-        </div>
-      ))}
+    <div className="flex justify-center items-center">
+      <div className="flex items-baseline">
+        <AnimatePresence mode="popLayout">
+          <motion.span
+            key={minutes}
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -20, opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="text-6xl font-bold tabular-nums"
+          >
+            {formatNumber(minutes)}
+          </motion.span>
+        </AnimatePresence>
+        <span className="text-6xl font-bold mx-1">:</span>
+        <AnimatePresence mode="popLayout">
+          <motion.span
+            key={seconds}
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -20, opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="text-6xl font-bold tabular-nums"
+          >
+            {formatNumber(seconds)}
+          </motion.span>
+        </AnimatePresence>
+      </div>
     </div>
   )
 }
@@ -44,6 +52,7 @@ export default function Component() {
   const [messages, setMessages] = useState([])
   const [timeLeft, setTimeLeft] = useState<number | null>(null)
   const [selectedEmail, setSelectedEmail] = useState(null)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     // Initialize email and timeLeft on the client side
@@ -148,10 +157,12 @@ export default function Component() {
   const copyToClipboard = () => {
     if (email) {
       navigator.clipboard.writeText(email)
+      setCopied(true)
       toast({
         title: "Email copied",
         description: "The email address has been copied to your clipboard.",
       })
+      setTimeout(() => setCopied(false), 2000) // Reset copied state after 2 seconds
     }
   }
 
@@ -257,10 +268,7 @@ export default function Component() {
             >
               <Card>
                 <CardContent className="p-6">
-                  <h2 className="text-2xl font-semibold mb-4 flex items-center">
-                    <Inbox className="mr-2 h-6 w-6 text-gray-500" />
-                    Inbox
-                  </h2>
+                  <h2 className="text-2xl font-semibold mb-4">Inbox</h2>
                   {messages.length === 0 ? (
                     <p className="text-center text-gray-500">No messages yet</p>
                   ) : (
