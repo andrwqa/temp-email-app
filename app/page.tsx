@@ -7,6 +7,8 @@ import { RefreshCw, Copy, Mail, ArrowLeft, Inbox, Check } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { toast } from "@/components/ui/use-toast"
 import { format, parseISO } from 'date-fns'
+import Particles from "@/components/ui/particles"
+import { useTheme } from "next-themes"
 
 const TimeTicker = ({ value }: { value: number }) => {
   const minutes = Math.floor(value / 60)
@@ -48,6 +50,9 @@ const TimeTicker = ({ value }: { value: number }) => {
 }
 
 export default function Component() {
+  const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+  const [color, setColor] = useState("#000000")
   const [email, setEmail] = useState<string | null>(null)
   const [messages, setMessages] = useState([])
   const [timeLeft, setTimeLeft] = useState<number | null>(null)
@@ -55,7 +60,16 @@ export default function Component() {
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    // Initialize email and timeLeft on the client side
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (mounted) {
+      setColor(theme === "dark" ? "#ffffff" : "#000000")
+    }
+  }, [theme, mounted])
+
+  useEffect(() => {
     const storedEmail = localStorage.getItem('tempEmail')
     const storedTime = localStorage.getItem('timeLeft')
     
@@ -97,28 +111,28 @@ export default function Component() {
   }, [timeLeft])
 
   useEffect(() => {
-    if (!email) return
+    if (!email) return;
 
     const fetchEmails = async () => {
       try {
-        const response = await fetch(`/api/emails?address=${email}`)
+        const response = await fetch(`/api/emails?address=${email}`);
         if (response.ok) {
-          const newEmails = await response.json()
-          console.log('Fetched emails:', newEmails)
+          const newEmails = await response.json();
+          console.log('Fetched emails:', newEmails);
           // Apply read state from localStorage
-          const readEmails = JSON.parse(localStorage.getItem('readEmails') || '{}')
+          const readEmails = JSON.parse(localStorage.getItem('readEmails') || '{}');
           const updatedEmails = newEmails.map(email => ({
             ...email,
             read: readEmails[email.id] || false
-          }))
-          setMessages(updatedEmails)
+          }));
+          setMessages(updatedEmails);
         }
       } catch (error) {
-        console.error("Failed to fetch emails:", error)
+        console.error("Failed to fetch emails:", error);
       }
-    }
+    };
 
-    fetchEmails()
+    fetchEmails();
 
     const eventSource = new EventSource(`/api/emails?address=${email}&sse=true`)
 
@@ -152,6 +166,7 @@ export default function Component() {
     setTimeLeft(600)
     localStorage.setItem('timeLeft', '600')
     localStorage.setItem('tempEmail', newEmail)
+    localStorage.removeItem('readEmails') // Clear read states
   }
 
   const copyToClipboard = () => {
@@ -167,17 +182,17 @@ export default function Component() {
   }
 
   const openEmail = (message) => {
-    setSelectedEmail(message)
+    setSelectedEmail(message);
     // Mark email as read
     setMessages(prevMessages =>
       prevMessages.map(msg =>
         msg.id === message.id ? { ...msg, read: true } : msg
       )
-    )
+    );
     // Save read state to localStorage
-    const readEmails = JSON.parse(localStorage.getItem('readEmails') || '{}')
-    readEmails[message.id] = true
-    localStorage.setItem('readEmails', JSON.stringify(readEmails))
+    const readEmails = JSON.parse(localStorage.getItem('readEmails') || '{}');
+    readEmails[message.id] = true;
+    localStorage.setItem('readEmails', JSON.stringify(readEmails));
   }
 
   const formatDate = (isoString: string) => {
@@ -190,19 +205,28 @@ export default function Component() {
     return format(date, 'p') // This will format the date as "5:02 PM"
   }
 
+  if (!mounted) return null
+
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col p-4">
+    <div className="relative min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex flex-col p-4 overflow-hidden">
+      <Particles
+        className="absolute inset-0 -z-10"
+        quantity={300}
+        staticity={30}
+        ease={50}
+        color={color}
+      />
       <motion.header 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="text-center mb-8"
+        className="text-center mb-8 relative z-10"
       >
         <h1 className="text-4xl font-bold">TempEmail</h1>
         <p className="text-gray-600">Disposable email for your temporary needs</p>
       </motion.header>
 
-      <main className="flex-grow container mx-auto max-w-3xl">
+      <main className="flex-grow container mx-auto max-w-3xl relative z-10">
         <Card className="mb-8 overflow-hidden bg-gradient-to-r from-blue-500 to-purple-600 text-white">
           <CardContent className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
@@ -268,7 +292,10 @@ export default function Component() {
             >
               <Card>
                 <CardContent className="p-6">
-                  <h2 className="text-2xl font-semibold mb-4">Inbox</h2>
+                  <h2 className="text-2xl font-semibold mb-4 flex items-center">
+                    <Inbox className="mr-2 h-6 w-6 text-gray-500" />
+                    Inbox
+                  </h2>
                   {messages.length === 0 ? (
                     <p className="text-center text-gray-500">No messages yet</p>
                   ) : (
@@ -279,12 +306,14 @@ export default function Component() {
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ duration: 0.5 }}
-                          className="flex items-center space-x-4 p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 cursor-pointer"
+                          className={`flex items-center space-x-4 p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 cursor-pointer ${
+                            message.read ? 'bg-gray-100' : 'bg-white font-semibold'
+                          }`}
                           onClick={() => openEmail(message)}
                         >
-                          <Mail className="h-6 w-6 text-gray-400 flex-shrink-0" aria-hidden="true" />
+                          <Mail className={`h-6 w-6 flex-shrink-0 ${message.read ? 'text-gray-400' : 'text-blue-500'}`} aria-hidden="true" />
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{message.from}</p>
+                            <p className={`text-sm truncate ${message.read ? 'text-gray-600' : 'text-gray-900'}`}>{message.from}</p>
                             <p className="text-sm text-gray-500 truncate">{message.subject}</p>
                           </div>
                           <div className="text-sm text-gray-500">{formatShortDate(message.time)}</div>
@@ -299,7 +328,7 @@ export default function Component() {
         </AnimatePresence>
       </main>
 
-      <footer className="mt-8 text-center text-sm text-gray-500">
+      <footer className="mt-8 text-center text-sm text-gray-500 relative z-10">
         © 2023 TempEmail. All rights reserved. Emails auto-delete after 10 minutes.
       </footer>
     </div>
