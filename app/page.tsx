@@ -262,7 +262,7 @@ export default function Component() {
           className="text-center mb-8 relative z-10"
         >
           <h1 className={`${poppins.className} text-5xl sm:text-6xl md:text-7xl font-normal mb-2 text-gray-900 dark:text-gray-100`}>
-            OneTimeEmail
+            OneTimeMail
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-400 mb-6">Disposable email for your temporary needs</p>
           <div className="text-center mb-8 relative z-10">
