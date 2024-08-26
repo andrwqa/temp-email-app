@@ -1,14 +1,17 @@
 "use client";
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent } from "@/components/ui/card"
-import { RefreshCw, Copy, Mail, ArrowLeft, Inbox, Check } from "lucide-react"
+import { RefreshCw, Copy, Mail, ArrowLeft, Inbox, Check, X } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { toast } from "@/components/ui/use-toast"
 import { format, parseISO } from 'date-fns'
 import Particles from "@/components/magicui/particles"
 import { useTheme } from "next-themes"
-import { Button } from "@/components/ui/button"; // Add this import
+import { Button } from "@/components/ui/button"
+import { Poppins } from 'next/font/google'
+
+const poppins = Poppins({ weight: ['400', '600', '700'], subsets: ['latin'] })
 
 const TimeTicker = ({ value }: { value: number }) => {
   const minutes = Math.floor(value / 60)
@@ -26,12 +29,12 @@ const TimeTicker = ({ value }: { value: number }) => {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -20, opacity: 0 }}
             transition={{ duration: 0.3 }}
-            className="text-6xl font-bold tabular-nums"
+            className="tabular-nums"
           >
             {formatNumber(minutes)}
           </motion.span>
         </AnimatePresence>
-        <span className="text-6xl font-bold mx-1">:</span>
+        <span className="mx-1">:</span>
         <AnimatePresence mode="popLayout">
           <motion.span
             key={seconds}
@@ -39,7 +42,7 @@ const TimeTicker = ({ value }: { value: number }) => {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -20, opacity: 0 }}
             transition={{ duration: 0.3 }}
-            className="text-6xl font-bold tabular-nums"
+            className="tabular-nums"
           >
             {formatNumber(seconds)}
           </motion.span>
@@ -110,54 +113,74 @@ export default function Component() {
     }
   }, [timeLeft])
 
-  useEffect(() => {
+  const fetchEmails = useCallback(async () => {
     if (!email) return;
-
-    const fetchEmails = async () => {
-      try {
-        const response = await fetch(`/api/emails?address=${email}`);
-        if (response.ok) {
-          const newEmails = await response.json();
-          console.log('Fetched emails:', newEmails);
-          // Apply read state from localStorage
-          const readEmails = JSON.parse(localStorage.getItem('readEmails') || '{}');
-          const updatedEmails = newEmails.map(email => ({
+    try {
+      console.log('Fetching emails for:', email);
+      const response = await fetch(`/api/emails?address=${email}`);
+      if (response.ok) {
+        const newEmails = await response.json();
+        console.log('Fetched emails:', newEmails);
+        const readEmails = JSON.parse(localStorage.getItem('readEmails') || '{}');
+        const updatedEmails = newEmails
+          .map(email => ({
             ...email,
             read: readEmails[email.id] || false
-          }));
-          setMessages(updatedEmails);
-        }
+          }))
+          .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+        setMessages(updatedEmails);
+      } else {
+        console.error('Failed to fetch emails:', response.status, response.statusText);
+      }
+    } catch (error) {
+      console.error("Failed to fetch emails:", error);
+    }
+  }, [email]);
+
+  useEffect(() => {
+    console.log('Email changed:', email);
+    fetchEmails();
+
+    if (!email) return;
+
+    console.log('Setting up SSE connection for:', email);
+    const eventSource = new EventSource(`/api/emails?address=${email}&sse=true`);
+
+    eventSource.onopen = () => {
+      console.log('SSE connection opened');
+    };
+
+    eventSource.onmessage = (event) => {
+      console.log('SSE message received:', event.data);
+      try {
+        const newEmail = JSON.parse(event.data);
+        setMessages(prevMessages => {
+          const emailExists = prevMessages.some(msg => msg.id === newEmail.id);
+          if (!emailExists) {
+            console.log('Adding new email to messages:', newEmail);
+            return [{ ...newEmail, read: false }, ...prevMessages];
+          }
+          return prevMessages;
+        });
       } catch (error) {
-        console.error("Failed to fetch emails:", error);
+        console.error('Error processing SSE message:', error);
       }
     };
 
-    fetchEmails();
-
-    const eventSource = new EventSource(`/api/emails?address=${email}&sse=true`)
-
-    eventSource.onmessage = (event) => {
-      console.log('SSE message received:', event.data)
-      const newEmail = JSON.parse(event.data)
-      setMessages(prevMessages => {
-        const emailExists = prevMessages.some(msg => msg.id === newEmail.id)
-        if (!emailExists) {
-          console.log('Adding new email to messages:', newEmail)
-          return [...prevMessages, { ...newEmail, read: false }]
-        }
-        return prevMessages
-      })
-    }
-
     eventSource.onerror = (error) => {
-      console.error("SSE error:", error)
-      eventSource.close()
-    }
+      console.error("SSE error:", error);
+      eventSource.close();
+    };
 
     return () => {
-      eventSource.close()
-    }
-  }, [email])
+      console.log('Closing SSE connection');
+      eventSource.close();
+    };
+  }, [email, fetchEmails]);
+
+  useEffect(() => {
+    console.log('Current messages:', messages);
+  }, [messages]);
 
   const refreshEmail = () => {
     const newEmail = `user${Math.floor(Math.random() * 1000)}@tempemail.com`
@@ -193,7 +216,11 @@ export default function Component() {
     const readEmails = JSON.parse(localStorage.getItem('readEmails') || '{}');
     readEmails[message.id] = true;
     localStorage.setItem('readEmails', JSON.stringify(readEmails));
-  }
+  };
+
+  const closeEmail = () => {
+    setSelectedEmail(null);
+  };
 
   const formatDate = (isoString: string) => {
     const date = parseISO(isoString)
@@ -205,26 +232,11 @@ export default function Component() {
     return format(date, 'p') // This will format the date as "5:02 PM"
   }
 
-  if (!mounted) return null
+  if (!mounted) return null;
 
   return (
-    <div className="relative min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex flex-col p-4 overflow-hidden">
-      <motion.header 
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="text-center mb-8 pt-8 relative z-10"
-      >
-        <h1 className="text-5xl font-bold mb-2">TempEmail</h1>
-        <p className="text-xl text-gray-600 dark:text-gray-400">Disposable email for your temporary needs</p>
-      </motion.header>
-
-      <div className="text-center mb-8 relative z-10">
-        <p className="text-xl mb-2">Time remaining:</p>
-        {timeLeft !== null && <TimeTicker value={timeLeft} />}
-      </div>
-
-      <main className="flex-grow container mx-auto max-w-4xl relative z-10">
+    <>
+      <div className="relative min-h-screen bg-gray-100 text-gray-900 flex flex-col p-4 sm:p-6 md:p-8 font-sans overflow-hidden">
         <Particles
           className="fixed inset-0 z-0 pointer-events-none"
           quantity={100}
@@ -232,118 +244,178 @@ export default function Component() {
           color={color}
           refresh={false}
         />
-        <Card className="overflow-hidden bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900 dark:to-purple-900 shadow-lg mb-8">
-          <CardContent className="p-8">
-            <div className="flex flex-col items-center space-y-6">
-              <motion.div 
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.2 }}
-                className="font-mono text-2xl md:text-3xl break-all text-center w-full max-w-2xl"
+        
+        <motion.header 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="text-center mb-8 relative z-10"
+        >
+          <h1 className={`${poppins.className} text-5xl sm:text-6xl md:text-7xl font-normal mb-2 text-gray-900 dark:text-gray-100`}>
+            OneTimeEmail
+          </h1>
+          <p className="text-xl text-gray-600 dark:text-gray-400 mb-6">Disposable email for your temporary needs</p>
+          <div className="text-center mb-8 relative z-10">
+            <p className="text-xl mb-4">Time remaining:</p>
+            <div className="flex items-center justify-center">
+              <div className="text-4xl font-bold mr-4">
+                {timeLeft !== null && <TimeTicker value={timeLeft} />}
+              </div>
+              <Button
+                onClick={refreshEmail}
+                className="px-4 py-2 bg-white dark:bg-gray-800 rounded-lg transition-all duration-300 relative overflow-hidden hover:bg-white focus:bg-white active:bg-white dark:hover:bg-gray-800 dark:focus:bg-gray-800 dark:active:bg-gray-800"
+                aria-label="Reset email and timer"
+                title="Reset email and timer"
+                style={{
+                  boxShadow: '0 0 5px rgba(59, 130, 246, 0.15), 0 0 10px rgba(167, 139, 250, 0.15), 0 0 15px rgba(236, 72, 153, 0.15)',
+                }}
               >
+                <RefreshCw className="h-5 w-5 relative z-10 text-gray-600 dark:text-gray-300" />
                 <div 
-                  className="p-4 border border-blue-300 dark:border-blue-600 rounded-2xl cursor-pointer transition-all duration-300 shadow-[0_0_10px_rgba(59,130,246,0.3)] dark:shadow-[0_0_10px_rgba(147,197,253,0.3)] hover:shadow-[0_0_15px_rgba(59,130,246,0.5)] dark:hover:shadow-[0_0_15px_rgba(147,197,253,0.5)]"
-                  onClick={copyToClipboard}
-                  title="Click to copy"
-                >
-                  {email || 'Loading...'}
-                </div>
-              </motion.div>
-              <div className="flex space-x-4">
-                <Button
-                  onClick={copyToClipboard}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg font-bold transform hover:-translate-y-1 transition duration-300 flex items-center justify-center shadow-md hover:shadow-lg"
-                  aria-label="Copy email address"
-                >
-                  <Copy className="h-5 w-5 mr-2" />
-                  Copy
-                </Button>
-                <Button
-                  onClick={refreshEmail}
-                  className="px-6 py-3 bg-purple-600 text-white rounded-lg font-bold transform hover:-translate-y-1 transition duration-300 flex items-center justify-center shadow-md hover:shadow-lg"
-                  aria-label="Get new email address"
-                >
-                  <RefreshCw className="h-5 w-5 mr-2" />
-                  New Email
-                </Button>
-              </div>
+                  className="absolute inset-0 opacity-30 blur-2xl"
+                  style={{
+                    background: 'linear-gradient(45deg, rgba(59, 130, 246, 0.3), rgba(167, 139, 250, 0.3), rgba(236, 72, 153, 0.3))',
+                    filter: 'blur(18px)',
+                  }}
+                ></div>
+              </Button>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card className="overflow-hidden bg-white dark:bg-gray-800 shadow-lg relative">
-          <CardContent className="p-8">
-            <div className="flex flex-col space-y-6">
-              <div className="text-center">
-                <h2 className="text-2xl font-semibold mb-2 flex items-center justify-center">
-                  <Inbox className="mr-2 h-6 w-6 text-gray-500 dark:text-gray-400" />
-                  Inbox
-                </h2>
-                <p className="text-gray-600 dark:text-gray-300 text-sm">
-                  Your temporary email messages will appear here
-                </p>
-              </div>
-              <div className="border-t border-gray-200 dark:border-gray-700 my-4"></div>
-              {messages.length === 0 ? (
-                <p className="text-center text-gray-500 dark:text-gray-400">No messages yet</p>
-              ) : (
-                <ul className="space-y-4">
-                  {messages.map((message) => (
-                    <motion.li 
-                      key={message.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.5 }}
-                      className={`flex items-center space-x-4 p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 cursor-pointer ${
-                        message.read ? 'bg-gray-50 dark:bg-gray-750' : 'bg-white dark:bg-gray-800 font-semibold'
-                      }`}
-                      onClick={() => openEmail(message)}
+          </div>
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="font-mono text-3xl md:text-4xl break-all text-center w-full max-w-3xl mx-auto mt-8"
+          >
+            <div 
+              className="inline-flex items-center justify-between px-8 py-4 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-transparent rounded-full cursor-pointer transition-all duration-300 relative overflow-hidden group hover:shadow-lg"
+              onClick={copyToClipboard}
+              title="Click to copy"
+              style={{
+                boxShadow: '0 0 5px rgba(59, 130, 246, 0.15), 0 0 10px rgba(167, 139, 250, 0.15), 0 0 15px rgba(236, 72, 153, 0.15)',
+              }}
+            >
+              <span className="mr-6 relative z-10">{email || 'Loading...'}</span>
+              <div className="flex items-center relative z-10">
+                <AnimatePresence mode="wait">
+                  {copied ? (
+                    <motion.div
+                      key="check"
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      exit={{ scale: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="p-2 bg-green-500 rounded-full mr-2"
                     >
-                      <Mail className={`h-6 w-6 flex-shrink-0 ${message.read ? 'text-gray-400' : 'text-blue-500'}`} aria-hidden="true" />
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm truncate ${message.read ? 'text-gray-600 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100'}`}>{message.from}</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{message.subject}</p>
-                      </div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">{formatShortDate(message.time)}</div>
-                    </motion.li>
-                  ))}
-                </ul>
-              )}
+                      <Check className="h-6 w-6 text-white" />
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="copy"
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      exit={{ scale: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="p-2 rounded-full mr-2"
+                    >
+                      <Copy className="h-6 w-6 text-gray-600 dark:text-gray-300" />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+              <div 
+                className="absolute inset-0 opacity-30 blur-2xl transition-opacity duration-300 group-hover:opacity-40"
+                style={{
+                  background: 'linear-gradient(45deg, rgba(59, 130, 246, 0.3), rgba(167, 139, 250, 0.3), rgba(236, 72, 153, 0.3))',
+                  filter: 'blur(18px)',
+                }}
+              ></div>
             </div>
-          </CardContent>
-          
-          <AnimatePresence>
-            {selectedEmail && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="absolute inset-0 bg-white dark:bg-gray-800 z-10 overflow-y-auto"
-              >
-                <div className="p-6">
-                  <Button
-                    variant="ghost"
-                    onClick={() => setSelectedEmail(null)}
-                    className="mb-4"
-                  >
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back to Inbox
-                  </Button>
-                  <h2 className="text-2xl font-semibold mb-2">{selectedEmail.subject}</h2>
-                  <p className="text-sm text-gray-500 mb-4">From: {selectedEmail.from}</p>
-                  <div className="prose dark:prose-invert max-w-none">
-                    {selectedEmail.body}
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </Card>
-      </main>
+          </motion.div>
+        </motion.header>
 
-      <footer className="mt-8 text-center text-sm text-gray-500 relative z-10">
-        © 2023 TempEmail. All rights reserved. Emails auto-delete after 10 minutes.
-      </footer>
-    </div>
+        <main className="flex-grow container mx-auto max-w-4xl relative z-10">
+          <Card className="overflow-hidden bg-gradient-to-br from-white via-gray-50 to-gray-100 border border-gray-200 shadow-lg rounded-lg">
+            <CardContent className="p-8">
+              <div className="flex flex-col space-y-6">
+                {selectedEmail ? (
+                  <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md">
+                    <button
+                      onClick={() => setSelectedEmail(null)}
+                      className="mb-4 flex items-center text-gray-800 dark:text-gray-200 hover:text-gray-900 dark:hover:text-gray-100 transition-colors duration-200 relative overflow-hidden rounded-lg px-4 py-2"
+                    >
+                      <ArrowLeft className="h-5 w-5 mr-2 relative z-10" />
+                      <span className="relative z-10">Back to Inbox</span>
+                      <div 
+                        className="absolute inset-0 opacity-30 blur-2xl"
+                        style={{
+                          background: 'linear-gradient(45deg, rgba(59, 130, 246, 0.3), rgba(167, 139, 250, 0.3), rgba(236, 72, 153, 0.3))',
+                          filter: 'blur(18px)',
+                        }}
+                      ></div>
+                    </button>
+                    <h3 className="text-2xl font-semibold mb-4">{selectedEmail.subject}</h3>
+                    <p className="text-sm text-gray-500 mb-2">From: {selectedEmail.from}</p>
+                    <p className="text-sm text-gray-500 mb-4">Time: {formatDate(selectedEmail.time)}</p>
+                    <div className="prose dark:prose-invert max-w-none overflow-auto max-h-[60vh]">
+                      <p className="whitespace-pre-wrap break-words">{selectedEmail.body}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="text-center">
+                      <h2 className="text-2xl font-semibold mb-4 flex items-center justify-center">
+                        <Inbox className="mr-3 h-6 w-6 text-gray-500 dark:text-gray-400" />
+                        Inbox
+                      </h2>
+                    </div>
+                    <div className="border-t border-gray-200 dark:border-gray-700"></div>
+                    {messages.length === 0 ? (
+                      <p className="text-center text-gray-500 dark:text-gray-400 text-xl py-12">No messages yet</p>
+                    ) : (
+                      <ul className="space-y-4">
+                        {messages.map((message) => (
+                          <li 
+                            key={message.id}
+                            className={`flex items-center space-x-6 p-6 rounded-lg cursor-pointer transition-all duration-200 ${
+                              message.read ? 'bg-gray-100 dark:bg-gray-750' : 'bg-white dark:bg-gray-800 shadow-sm hover:shadow-md'
+                            }`}
+                            onClick={() => openEmail(message)}
+                          >
+                            <Mail 
+                              className={`h-8 w-8 flex-shrink-0 ${
+                                message.read 
+                                  ? 'text-gray-400' 
+                                  : 'text-gray-900 dark:text-gray-100'
+                              }`} 
+                              aria-hidden="true" 
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-lg font-medium truncate ${message.read ? 'text-gray-600 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100'}`}>
+                                {message.from}
+                              </p>
+                              <p className="text-base text-gray-500 dark:text-gray-400 truncate mt-1">
+                                {message.subject}
+                              </p>
+                            </div>
+                            <div className="text-base text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                              {formatShortDate(message.time)}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </main>
+
+        <footer className="mt-12 text-center text-sm text-gray-500 relative z-10">
+          Contact me: <a href="mailto:andrwqa@gmail.com" className="text-blue-500 hover:text-blue-600 transition-colors duration-200">andrwqa@gmail.com</a>
+        </footer>
+      </div>
+    </>
   )
 }
