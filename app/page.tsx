@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useEffect } from 'react'
-import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { RefreshCw, Copy, Mail, ArrowLeft, Inbox, Check } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { toast } from "@/components/ui/use-toast"
 import { format, parseISO } from 'date-fns'
-import Particles from "@/components/ui/particles"
+import Particles from "@/components/magicui/particles"
 import { useTheme } from "next-themes"
+import { Button } from "@/components/ui/button"; // Add this import
 
 const TimeTicker = ({ value }: { value: number }) => {
   const minutes = Math.floor(value / 60)
@@ -50,7 +50,7 @@ const TimeTicker = ({ value }: { value: number }) => {
 }
 
 export default function Component() {
-  const { theme, setTheme } = useTheme()
+  const { theme } = useTheme()
   const [mounted, setMounted] = useState(false)
   const [color, setColor] = useState("#000000")
   const [email, setEmail] = useState<string | null>(null)
@@ -209,65 +209,118 @@ export default function Component() {
 
   return (
     <div className="relative min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex flex-col p-4 overflow-hidden">
-      <Particles
-        className="absolute inset-0 -z-10"
-        quantity={300}
-        staticity={30}
-        ease={50}
-        color={color}
-      />
       <motion.header 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="text-center mb-8 relative z-10"
+        className="text-center mb-8 pt-8 relative z-10"
       >
-        <h1 className="text-4xl font-bold">TempEmail</h1>
-        <p className="text-gray-600">Disposable email for your temporary needs</p>
+        <h1 className="text-5xl font-bold mb-2">TempEmail</h1>
+        <p className="text-xl text-gray-600 dark:text-gray-400">Disposable email for your temporary needs</p>
       </motion.header>
 
-      <main className="flex-grow container mx-auto max-w-3xl relative z-10">
-        <Card className="mb-8 overflow-hidden bg-gradient-to-r from-blue-500 to-purple-600 text-white">
-          <CardContent className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-              <div className="col-span-2">
-                <motion.div 
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.5, delay: 0.2 }}
-                  className="font-mono text-xl md:text-2xl break-all"
+      <div className="text-center mb-8 relative z-10">
+        <p className="text-xl mb-2">Time remaining:</p>
+        {timeLeft !== null && <TimeTicker value={timeLeft} />}
+      </div>
+
+      <main className="flex-grow container mx-auto max-w-4xl relative z-10">
+        <Particles
+          className="fixed inset-0 z-0 pointer-events-none"
+          quantity={100}
+          ease={80}
+          color={color}
+          refresh={false}
+        />
+        <Card className="overflow-hidden bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900 dark:to-purple-900 shadow-lg mb-8">
+          <CardContent className="p-8">
+            <div className="flex flex-col items-center space-y-6">
+              <motion.div 
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+                className="font-mono text-2xl md:text-3xl break-all text-center w-full max-w-2xl"
+              >
+                <div 
+                  className="p-4 border border-blue-300 dark:border-blue-600 rounded-2xl cursor-pointer transition-all duration-300 shadow-[0_0_10px_rgba(59,130,246,0.3)] dark:shadow-[0_0_10px_rgba(147,197,253,0.3)] hover:shadow-[0_0_15px_rgba(59,130,246,0.5)] dark:hover:shadow-[0_0_15px_rgba(147,197,253,0.5)]"
+                  onClick={copyToClipboard}
+                  title="Click to copy"
                 >
                   {email || 'Loading...'}
-                </motion.div>
-              </div>
-              <div className="flex space-x-2 justify-end">
-                <Button onClick={copyToClipboard} variant="secondary" size="icon" aria-label="Copy email address">
-                  <Copy className="h-4 w-4" />
+                </div>
+              </motion.div>
+              <div className="flex space-x-4">
+                <Button
+                  onClick={copyToClipboard}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg font-bold transform hover:-translate-y-1 transition duration-300 flex items-center justify-center shadow-md hover:shadow-lg"
+                  aria-label="Copy email address"
+                >
+                  <Copy className="h-5 w-5 mr-2" />
+                  Copy
                 </Button>
-                <Button onClick={refreshEmail} variant="secondary" size="icon" aria-label="Get new email address">
-                  <RefreshCw className="h-4 w-4" />
+                <Button
+                  onClick={refreshEmail}
+                  className="px-6 py-3 bg-purple-600 text-white rounded-lg font-bold transform hover:-translate-y-1 transition duration-300 flex items-center justify-center shadow-md hover:shadow-lg"
+                  aria-label="Get new email address"
+                >
+                  <RefreshCw className="h-5 w-5 mr-2" />
+                  New Email
                 </Button>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <div className="text-center mb-8">
-          <p className="text-gray-600 mb-2">Time remaining:</p>
-          {timeLeft !== null && <TimeTicker value={timeLeft} />}
-        </div>
-
-        <AnimatePresence mode="wait">
-          {selectedEmail ? (
-            <motion.div
-              key="email-detail"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-            >
-              <Card>
-                <CardContent className="p-6">
+        <Card className="overflow-hidden bg-white dark:bg-gray-800 shadow-lg relative">
+          <CardContent className="p-8">
+            <div className="flex flex-col space-y-6">
+              <div className="text-center">
+                <h2 className="text-2xl font-semibold mb-2 flex items-center justify-center">
+                  <Inbox className="mr-2 h-6 w-6 text-gray-500 dark:text-gray-400" />
+                  Inbox
+                </h2>
+                <p className="text-gray-600 dark:text-gray-300 text-sm">
+                  Your temporary email messages will appear here
+                </p>
+              </div>
+              <div className="border-t border-gray-200 dark:border-gray-700 my-4"></div>
+              {messages.length === 0 ? (
+                <p className="text-center text-gray-500 dark:text-gray-400">No messages yet</p>
+              ) : (
+                <ul className="space-y-4">
+                  {messages.map((message) => (
+                    <motion.li 
+                      key={message.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5 }}
+                      className={`flex items-center space-x-4 p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 cursor-pointer ${
+                        message.read ? 'bg-gray-50 dark:bg-gray-750' : 'bg-white dark:bg-gray-800 font-semibold'
+                      }`}
+                      onClick={() => openEmail(message)}
+                    >
+                      <Mail className={`h-6 w-6 flex-shrink-0 ${message.read ? 'text-gray-400' : 'text-blue-500'}`} aria-hidden="true" />
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm truncate ${message.read ? 'text-gray-600 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100'}`}>{message.from}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{message.subject}</p>
+                      </div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">{formatShortDate(message.time)}</div>
+                    </motion.li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </CardContent>
+          
+          <AnimatePresence>
+            {selectedEmail && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 bg-white dark:bg-gray-800 z-10 overflow-y-auto"
+              >
+                <div className="p-6">
                   <Button
                     variant="ghost"
                     onClick={() => setSelectedEmail(null)}
@@ -278,54 +331,14 @@ export default function Component() {
                   </Button>
                   <h2 className="text-2xl font-semibold mb-2">{selectedEmail.subject}</h2>
                   <p className="text-sm text-gray-500 mb-4">From: {selectedEmail.from}</p>
-                  <p className="text-gray-700">{selectedEmail.body}</p>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="email-list"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-            >
-              <Card>
-                <CardContent className="p-6">
-                  <h2 className="text-2xl font-semibold mb-4 flex items-center">
-                    <Inbox className="mr-2 h-6 w-6 text-gray-500" />
-                    Inbox
-                  </h2>
-                  {messages.length === 0 ? (
-                    <p className="text-center text-gray-500">No messages yet</p>
-                  ) : (
-                    <ul className="space-y-4">
-                      {messages.map((message) => (
-                        <motion.li 
-                          key={message.id}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.5 }}
-                          className={`flex items-center space-x-4 p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 cursor-pointer ${
-                            message.read ? 'bg-gray-100' : 'bg-white font-semibold'
-                          }`}
-                          onClick={() => openEmail(message)}
-                        >
-                          <Mail className={`h-6 w-6 flex-shrink-0 ${message.read ? 'text-gray-400' : 'text-blue-500'}`} aria-hidden="true" />
-                          <div className="flex-1 min-w-0">
-                            <p className={`text-sm truncate ${message.read ? 'text-gray-600' : 'text-gray-900'}`}>{message.from}</p>
-                            <p className="text-sm text-gray-500 truncate">{message.subject}</p>
-                          </div>
-                          <div className="text-sm text-gray-500">{formatShortDate(message.time)}</div>
-                        </motion.li>
-                      ))}
-                    </ul>
-                  )}
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                  <div className="prose dark:prose-invert max-w-none">
+                    {selectedEmail.body}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </Card>
       </main>
 
       <footer className="mt-8 text-center text-sm text-gray-500 relative z-10">
