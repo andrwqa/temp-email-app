@@ -3,8 +3,18 @@ import { SMTPServer } from 'smtp-server'
 import { simpleParser } from 'mailparser'
 import { EventEmitter } from 'events'
 
+interface Email {
+  id: number;
+  to: string;
+  from: string;
+  subject: string;
+  body: string;
+  time: string;
+  read: boolean;
+}
+
 const emailEmitter = new EventEmitter()
-let emails = []
+let emails: Email[] = []
 
 // Set up SMTP server
 const smtpServer = new SMTPServer({
@@ -16,10 +26,10 @@ const smtpServer = new SMTPServer({
       } else {
         const newEmail = {
           id: Date.now(),
-          to: parsed.to.text,
-          from: parsed.from.text,
+          to: Array.isArray(parsed.to) ? parsed.to[0].text : parsed.to?.text || 'Unknown',
+          from: Array.isArray(parsed.from) ? parsed.from[0].text : parsed.from?.text || 'Unknown',
           subject: parsed.subject || 'No Subject',
-          body: parsed.text,
+          body: parsed.text ?? '', // Use empty string as fallback
           time: new Date().toISOString(), // Store full ISO date string
           read: false
         }
@@ -52,7 +62,7 @@ export async function GET(request: Request) {
     const encoder = new TextEncoder()
     const stream = new ReadableStream({
       start(controller) {
-        const newEmailListener = (email) => {
+        const newEmailListener = (email: Email) => {
           if (email.to === address) {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify(email)}\n\n`))
           }

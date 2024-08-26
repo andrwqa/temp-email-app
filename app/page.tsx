@@ -52,14 +52,24 @@ const TimeTicker = ({ value }: { value: number }) => {
   )
 }
 
+// Add this interface near the top of your file
+interface Email {
+  id: string;
+  from: string;
+  subject: string;
+  body: string;
+  time: string;
+  read: boolean;
+}
+
 export default function Component() {
   const { theme } = useTheme()
   const [mounted, setMounted] = useState(false)
   const [color, setColor] = useState("#000000")
   const [email, setEmail] = useState<string | null>(null)
-  const [messages, setMessages] = useState([])
+  const [messages, setMessages] = useState<Email[]>([])
   const [timeLeft, setTimeLeft] = useState<number | null>(null)
-  const [selectedEmail, setSelectedEmail] = useState(null)
+  const [selectedEmail, setSelectedEmail] = useState<Email | null>(null)
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
@@ -123,11 +133,11 @@ export default function Component() {
         console.log('Fetched emails:', newEmails);
         const readEmails = JSON.parse(localStorage.getItem('readEmails') || '{}');
         const updatedEmails = newEmails
-          .map(email => ({
+          .map((email: { id: string }) => ({
             ...email,
             read: readEmails[email.id] || false
           }))
-          .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+          .sort((a: { time: string }, b: { time: string }) => new Date(b.time).getTime() - new Date(a.time).getTime());
         setMessages(updatedEmails);
       } else {
         console.error('Failed to fetch emails:', response.status, response.statusText);
@@ -153,12 +163,12 @@ export default function Component() {
     eventSource.onmessage = (event) => {
       console.log('SSE message received:', event.data);
       try {
-        const newEmail = JSON.parse(event.data);
+        const newEmail = JSON.parse(event.data) as Email;
         setMessages(prevMessages => {
           const emailExists = prevMessages.some(msg => msg.id === newEmail.id);
           if (!emailExists) {
             console.log('Adding new email to messages:', newEmail);
-            return [{ ...newEmail, read: false }, ...prevMessages];
+            return [newEmail, ...prevMessages];
           }
           return prevMessages;
         });
@@ -204,7 +214,7 @@ export default function Component() {
     }
   }
 
-  const openEmail = (message) => {
+  const openEmail = (message: Email) => {
     setSelectedEmail(message);
     // Mark email as read
     setMessages(prevMessages =>
@@ -374,7 +384,7 @@ export default function Component() {
                       <p className="text-center text-gray-500 dark:text-gray-400 text-xl py-12">No messages yet</p>
                     ) : (
                       <ul className="space-y-4">
-                        {messages.map((message) => (
+                        {messages.map((message: Email) => (
                           <li 
                             key={message.id}
                             className={`flex items-center space-x-6 p-6 rounded-lg cursor-pointer transition-all duration-200 ${
