@@ -9,7 +9,7 @@ interface RefProps {
 
 export default function Ref({ email, onOpen, onClose }: RefProps) {
   const [remainingTime, setRemainingTime] = useState(0);
-  const timerRef = useRef<NodeJS.Timer | null>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const startTimer = () => {
