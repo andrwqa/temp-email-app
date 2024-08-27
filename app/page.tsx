@@ -20,7 +20,7 @@ const TimeTicker = ({ value }: { value: number }) => {
   const formatNumber = (num: number) => num.toString().padStart(2, '0')
 
   return (
-    <div className="flex justify-center items-center">
+    <div className="flex justify-center items-center text-gray-600 dark:text-gray-400">
       <div className="flex items-baseline">
         <AnimatePresence mode="popLayout">
           <motion.span
@@ -260,8 +260,10 @@ export default function Component() {
           transition={{ duration: 0.5 }}
           className="text-center mb-8"
         >
-          <h1 className={`${poppins.className} text-5xl sm:text-6xl md:text-7xl font-normal mb-2 text-gray-900 dark:text-gray-100`}>
-            OneTimeMail
+          <h1 className={`${poppins.className} text-5xl sm:text-6xl md:text-7xl font-normal mb-2 relative`}>
+            <span className="text-gray-600 dark:text-gray-400">
+              OneTimeMail
+            </span>
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-400 mb-6">Disposable email for your temporary needs</p>
           <div className="text-center mb-8">
