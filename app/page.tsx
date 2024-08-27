@@ -68,7 +68,7 @@ export default function Component() {
   const [color, setColor] = useState("#000000")
   const [email, setEmail] = useState<string | null>(null)
   const [messages, setMessages] = useState<Email[]>([])
-  const [timeLeft, setTimeLeft] = useState<number | null>(null)
+  const [timeLeft, setTimeLeft] = useState<number>(600) // Initialize with 600 instead of null
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null)
   const [copied, setCopied] = useState(false)
 
@@ -103,11 +103,8 @@ export default function Component() {
   }, [])
 
   useEffect(() => {
-    if (timeLeft === null) return
-
     const timer = setInterval(() => {
       setTimeLeft((prevTime) => {
-        if (prevTime === null) return null
         const newTime = prevTime > 0 ? prevTime - 1 : 0
         localStorage.setItem('timeLeft', newTime.toString())
         return newTime
@@ -115,11 +112,16 @@ export default function Component() {
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [timeLeft])
+  }, [])
 
   useEffect(() => {
     if (timeLeft === 0) {
-      refreshEmail()
+      const newEmail = `user${Math.floor(Math.random() * 1000)}@tempemail.com`
+      setEmail(newEmail)
+      localStorage.setItem('tempEmail', newEmail)
+      const newTime = 600 // 10 minutes in seconds
+      setTimeLeft(newTime)
+      localStorage.setItem('timeLeft', newTime.toString())
     }
   }, [timeLeft])
 
@@ -192,14 +194,9 @@ export default function Component() {
     console.log('Current messages:', messages);
   }, [messages]);
 
-  const refreshEmail = () => {
-    const newEmail = `user${Math.floor(Math.random() * 1000)}@tempemail.com`
-    setEmail(newEmail)
-    setMessages([])
-    setTimeLeft(600)
+  const resetTimer = () => {
+    setTimeLeft(600) // Reset to 10 minutes
     localStorage.setItem('timeLeft', '600')
-    localStorage.setItem('tempEmail', newEmail)
-    localStorage.removeItem('readEmails') // Clear read states
   }
 
   const copyToClipboard = () => {
@@ -245,37 +242,39 @@ export default function Component() {
   if (!mounted) return null;
 
   return (
-    <>
-      <div className="relative min-h-screen bg-gray-100 text-gray-900 flex flex-col p-4 sm:p-6 md:p-8 font-sans overflow-hidden">
-        <Particles
-          className="fixed inset-0 z-0 pointer-events-none"
-          quantity={100}
-          ease={80}
-          color={color}
-          refresh={false}
-        />
-        
+    <div className="flex flex-col min-h-screen bg-gray-100 text-gray-900 font-sans overflow-hidden">
+      <Particles
+        className="fixed inset-0 z-0 pointer-events-none opacity-45"
+        quantity={30}
+        staticity={25}
+        ease={250}
+        size={3}
+        color="#8A2BE5"
+        refresh={false}
+      />
+      
+      <div className="relative z-10 flex-grow flex flex-col p-4 sm:p-6 md:p-8">
         <motion.header 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="text-center mb-8 relative z-10"
+          className="text-center mb-8"
         >
           <h1 className={`${poppins.className} text-5xl sm:text-6xl md:text-7xl font-normal mb-2 text-gray-900 dark:text-gray-100`}>
             OneTimeMail
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-400 mb-6">Disposable email for your temporary needs</p>
-          <div className="text-center mb-8 relative z-10">
+          <div className="text-center mb-8">
             <p className="text-xl mb-4">Time remaining:</p>
             <div className="flex items-center justify-center">
               <div className="text-4xl font-bold mr-4">
                 {timeLeft !== null && <TimeTicker value={timeLeft} />}
               </div>
               <Button
-                onClick={refreshEmail}
+                onClick={resetTimer}
                 className="px-4 py-2 bg-white dark:bg-gray-800 rounded-lg transition-all duration-300 relative overflow-hidden hover:bg-white focus:bg-white active:bg-white dark:hover:bg-gray-800 dark:focus:bg-gray-800 dark:active:bg-gray-800"
-                aria-label="Reset email and timer"
-                title="Reset email and timer"
+                aria-label="Reset timer"
+                title="Reset timer"
                 style={{
                   boxShadow: '0 0 5px rgba(59, 130, 246, 0.15), 0 0 10px rgba(167, 139, 250, 0.15), 0 0 15px rgba(236, 72, 153, 0.15)',
                 }}
@@ -344,7 +343,7 @@ export default function Component() {
           </motion.div>
         </motion.header>
 
-        <main className="flex-grow container mx-auto max-w-4xl relative z-10">
+        <main className="flex-grow container mx-auto max-w-4xl">
           <Card className="overflow-hidden bg-gradient-to-br from-white via-gray-50 to-gray-100 border border-gray-200 shadow-lg rounded-lg">
             <CardContent className="p-8">
               <div className="flex flex-col space-y-6">
@@ -421,11 +420,11 @@ export default function Component() {
             </CardContent>
           </Card>
         </main>
-
-        <footer className="mt-12 text-center text-sm text-gray-500 relative z-10">
-          Contact me: <a href="mailto:andrwqa@gmail.com" className="text-blue-500 hover:text-blue-600 transition-colors duration-200">andrwqa@gmail.com</a>
-        </footer>
       </div>
-    </>
+
+      <footer className="relative z-10 mt-auto py-6 text-center text-base text-gray-600">
+        Contact me: <a href="mailto:andrwqa@gmail.com" className="text-blue-500 hover:text-blue-600 transition-colors duration-200 font-medium">andrwqa@gmail.com</a>
+      </footer>
+    </div>
   )
 }
