@@ -1,31 +1,38 @@
 const SMTPServer = require('smtp-server').SMTPServer;
-const simpleParser = require('mailparser').simpleParser;
-const fetch = require('node-fetch');
+const axios = require('axios');
+const { simpleParser } = require('mailparser');
 
 const server = new SMTPServer({
-  allowInsecureAuth: true,
-  authOptional: true,
   onData(stream, session, callback) {
-    simpleParser(stream, {}, (err, parsed) => {
+    simpleParser(stream, {}, async (err, parsed) => {
       if (err) {
-        console.error(err);
-      } else {
-        const email = {
-          to: parsed.to.text,
-          from: parsed.from.text,
-          subject: parsed.subject,
-          body: parsed.text
-        };
-        
-        fetch('http://localhost:3000/api/emails', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(email)
-        }).then(() => console.log('Email sent to API')).catch(console.error);
+        console.error('Error parsing email:', err);
+        return callback(err);
       }
-      callback();
+
+      const { from, to, subject, text: body, date: time } = parsed;
+      const id = parsed.messageId;
+
+      try {
+        await axios.post('https://temp-email-app.vercel.app/api/emails', {
+          id,
+          from: from.text,
+          to: to.text,
+          subject,
+          body,
+          time: time.toISOString(),
+        });
+        console.log('Email forwarded to API endpoint');
+        callback(null, 'Message accepted');
+      } catch (error) {
+        console.error('Error forwarding email to API endpoint:', error);
+        callback(error);
+      }
     });
-  }
+  },
+  onAuth(auth, session, callback) {
+    callback(null, { user: 'user' });
+  },
 });
 
 server.listen(2525, () => {
