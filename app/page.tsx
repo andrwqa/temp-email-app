@@ -1,21 +1,58 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { Card, CardContent } from "@/components/ui/card";
-import { RefreshCw, Copy, Inbox, Check } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { toast } from "@/components/ui/use-toast";
-import Particles from "@/components/magicui/particles";
-import { useTheme } from "next-themes";
-import { Button } from "@/components/ui/button";
-import { Poppins } from 'next/font/google';
-import TimeTicker from "@/app/components/TimeTicker";
-import EmailList from "@/app/components/EmailList";
-import EmailViewer from "@/app/components/EmailViewer";
+import { useState, useEffect, useCallback } from 'react'
+import { Card, CardContent } from "@/components/ui/card"
+import { RefreshCw, Copy, Mail, ArrowLeft, Inbox, Check, X } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
+import { toast } from "@/components/ui/use-toast"
+import { format, parseISO } from 'date-fns'
+import Particles from "@/components/magicui/particles"
+import { useTheme } from "next-themes"
+import { Button } from "@/components/ui/button"
+import { Poppins } from 'next/font/google'
 
-const poppins = Poppins({ weight: ['400', '600', '700'], subsets: ['latin'] });
+const poppins = Poppins({ weight: ['400', '600', '700'], subsets: ['latin'] })
 
+const TimeTicker = ({ value }: { value: number }) => {
+  const minutes = Math.floor(value / 60)
+  const seconds = value % 60
+
+  const formatNumber = (num: number) => num.toString().padStart(2, '0')
+
+  return (
+    <div className="flex justify-center items-center text-gray-600 dark:text-gray-400">
+      <div className="flex items-baseline">
+        <AnimatePresence mode="popLayout">
+          <motion.span
+            key={minutes}
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -20, opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="tabular-nums"
+          >
+            {formatNumber(minutes)}
+          </motion.span>
+        </AnimatePresence>
+        <span className="mx-1">:</span>
+        <AnimatePresence mode="popLayout">
+          <motion.span
+            key={seconds}
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -20, opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="tabular-nums"
+          >
+            {formatNumber(seconds)}
+          </motion.span>
+        </AnimatePresence>
+      </div>
+    </div>
+  )
+}
+
+// Add this interface near the top of your file
 interface Email {
   id: string;
   from: string;
@@ -26,68 +63,67 @@ interface Email {
 }
 
 export default function Component() {
-  const router = useRouter();
-  const { theme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-  const [color, setColor] = useState("#000000");
-  const [email, setEmail] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Email[]>([]);
-  const [timeLeft, setTimeLeft] = useState<number>(600); // Initialize with 600 instead of null
-  const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
-  const [copied, setCopied] = useState(false);
+  const { theme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+  const [color, setColor] = useState("#000000")
+  const [email, setEmail] = useState<string | null>(null)
+  const [messages, setMessages] = useState<Email[]>([])
+  const [timeLeft, setTimeLeft] = useState<number>(600) // Initialize with 600 instead of null
+  const [selectedEmail, setSelectedEmail] = useState<Email | null>(null)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     if (mounted) {
-      setColor(theme === "dark" ? "#ffffff" : "#000000");
+      setColor(theme === "dark" ? "#ffffff" : "#000000")
     }
-  }, [theme, mounted]);
+  }, [theme, mounted])
 
   useEffect(() => {
-    const storedEmail = localStorage.getItem('tempEmail');
-    const storedTime = localStorage.getItem('timeLeft');
+    const storedEmail = localStorage.getItem('tempEmail')
+    const storedTime = localStorage.getItem('timeLeft')
     
     if (storedEmail) {
-      setEmail(storedEmail);
+      setEmail(storedEmail)
     } else {
-      const newEmail = `user${Math.floor(Math.random() * 1000)}@temp-email-app.vercel.app`;
-      setEmail(newEmail);
-      localStorage.setItem('tempEmail', newEmail);
+      const newEmail = `user${Math.floor(Math.random() * 1000)}@tempemail.com`
+      setEmail(newEmail)
+      localStorage.setItem('tempEmail', newEmail)
     }
 
     if (storedTime) {
-      setTimeLeft(parseInt(storedTime));
+      setTimeLeft(parseInt(storedTime))
     } else {
-      setTimeLeft(600); // 10 minutes in seconds
-      localStorage.setItem('timeLeft', '600');
+      setTimeLeft(600) // 10 minutes in seconds
+      localStorage.setItem('timeLeft', '600')
     }
-  }, []);
+  }, [])
 
   useEffect(() => {
     const timer = setInterval(() => {
       setTimeLeft((prevTime) => {
-        const newTime = prevTime > 0 ? prevTime - 1 : 0;
-        localStorage.setItem('timeLeft', newTime.toString());
-        return newTime;
-      });
-    }, 1000);
+        const newTime = prevTime > 0 ? prevTime - 1 : 0
+        localStorage.setItem('timeLeft', newTime.toString())
+        return newTime
+      })
+    }, 1000)
 
-    return () => clearInterval(timer);
-  }, []);
+    return () => clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     if (timeLeft === 0) {
-      const newEmail = `user${Math.floor(Math.random() * 1000)}@temp-email-app.vercel.app`;
-      setEmail(newEmail);
-      localStorage.setItem('tempEmail', newEmail);
-      const newTime = 600; // 10 minutes in seconds
-      setTimeLeft(newTime);
-      localStorage.setItem('timeLeft', newTime.toString());
+      const newEmail = `user${Math.floor(Math.random() * 1000)}@tempemail.com`
+      setEmail(newEmail)
+      localStorage.setItem('tempEmail', newEmail)
+      const newTime = 600 // 10 minutes in seconds
+      setTimeLeft(newTime)
+      localStorage.setItem('timeLeft', newTime.toString())
     }
-  }, [timeLeft]);
+  }, [timeLeft])
 
   const fetchEmails = useCallback(async () => {
     if (!email) return;
@@ -159,21 +195,21 @@ export default function Component() {
   }, [messages]);
 
   const resetTimer = () => {
-    setTimeLeft(600); // Reset to 10 minutes
-    localStorage.setItem('timeLeft', '600');
-  };
+    setTimeLeft(600) // Reset to 10 minutes
+    localStorage.setItem('timeLeft', '600')
+  }
 
   const copyToClipboard = () => {
     if (email) {
-      navigator.clipboard.writeText(email);
-      setCopied(true);
+      navigator.clipboard.writeText(email)
+      setCopied(true)
       toast({
         title: "Email copied",
         description: "The email address has been copied to your clipboard.",
-      });
-      setTimeout(() => setCopied(false), 2000); // Reset copied state after 2 seconds
+      })
+      setTimeout(() => setCopied(false), 2000) // Reset copied state after 2 seconds
     }
-  };
+  }
 
   const openEmail = (message: Email) => {
     setSelectedEmail(message);
@@ -192,6 +228,16 @@ export default function Component() {
   const closeEmail = () => {
     setSelectedEmail(null);
   };
+
+  const formatDate = (isoString: string) => {
+    const date = parseISO(isoString)
+    return format(date, 'PPpp') // This will format the date as "Aug 25, 2024, 5:02 PM"
+  }
+
+  const formatShortDate = (isoString: string) => {
+    const date = parseISO(isoString)
+    return format(date, 'p') // This will format the date as "5:02 PM"
+  }
 
   if (!mounted) return null;
 
@@ -304,7 +350,28 @@ export default function Component() {
             <CardContent className="p-8">
               <div className="flex flex-col space-y-6">
                 {selectedEmail ? (
-                  <EmailViewer selectedEmail={selectedEmail} closeEmail={closeEmail} />
+                  <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-md">
+                    <button
+                      onClick={() => setSelectedEmail(null)}
+                      className="mb-4 flex items-center text-gray-800 dark:text-gray-200 hover:text-gray-900 dark:hover:text-gray-100 transition-colors duration-200 relative overflow-hidden rounded-lg px-4 py-2"
+                    >
+                      <ArrowLeft className="h-5 w-5 mr-2 relative z-10" />
+                      <span className="relative z-10">Back to Inbox</span>
+                      <div 
+                        className="absolute inset-0 opacity-30 blur-2xl"
+                        style={{
+                          background: 'linear-gradient(45deg, rgba(59, 130, 246, 0.3), rgba(167, 139, 250, 0.3), rgba(236, 72, 153, 0.3))',
+                          filter: 'blur(18px)',
+                        }}
+                      ></div>
+                    </button>
+                    <h3 className="text-2xl font-semibold mb-4">{selectedEmail.subject}</h3>
+                    <p className="text-sm text-gray-500 mb-2">From: {selectedEmail.from}</p>
+                    <p className="text-sm text-gray-500 mb-4">Time: {formatDate(selectedEmail.time)}</p>
+                    <div className="prose dark:prose-invert max-w-none overflow-auto max-h-[60vh]">
+                      <p className="whitespace-pre-wrap break-words">{selectedEmail.body}</p>
+                    </div>
+                  </div>
                 ) : (
                   <>
                     <div className="text-center">
@@ -317,7 +384,37 @@ export default function Component() {
                     {messages.length === 0 ? (
                       <p className="text-center text-gray-500 dark:text-gray-400 text-xl py-12">No messages yet</p>
                     ) : (
-                      <EmailList messages={messages} openEmail={openEmail} />
+                      <ul className="space-y-4">
+                        {messages.map((message: Email) => (
+                          <li 
+                            key={message.id}
+                            className={`flex items-center space-x-6 p-6 rounded-lg cursor-pointer transition-all duration-200 ${
+                              message.read ? 'bg-gray-100 dark:bg-gray-750' : 'bg-white dark:bg-gray-800 shadow-sm hover:shadow-md'
+                            }`}
+                            onClick={() => openEmail(message)}
+                          >
+                            <Mail 
+                              className={`h-8 w-8 flex-shrink-0 ${
+                                message.read 
+                                  ? 'text-gray-400' 
+                                  : 'text-gray-900 dark:text-gray-100'
+                              }`} 
+                              aria-hidden="true" 
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-lg font-medium truncate ${message.read ? 'text-gray-600 dark:text-gray-400' : 'text-gray-900 dark:text-gray-100'}`}>
+                                {message.from}
+                              </p>
+                              <p className="text-base text-gray-500 dark:text-gray-400 truncate mt-1">
+                                {message.subject}
+                              </p>
+                            </div>
+                            <div className="text-base text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                              {formatShortDate(message.time)}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
                     )}
                   </>
                 )}
@@ -331,5 +428,5 @@ export default function Component() {
         Contact me: <a href="mailto:andrwqa@gmail.com" className="text-blue-500 hover:text-blue-600 transition-colors duration-200 font-medium">andrwqa@gmail.com</a>
       </footer>
     </div>
-  );
+  )
 }
