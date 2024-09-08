@@ -16,6 +16,11 @@ interface Email {
 const emailEmitter = new EventEmitter()
 let emails: Email[] = []
 
+// Function to fetch emails for a specific address
+const fetchEmailsForAddress = (address: string) => {
+  return emails.filter(email => email.to === address);
+};
+
 // Set up SMTP server
 const smtpServer = new SMTPServer({
   authOptional: true,
@@ -54,7 +59,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Email address is required' }, { status: 400 })
   }
 
-  const userEmails = emails.filter(email => email.to === address)
+  const userEmails = fetchEmailsForAddress(address)
   console.log('Fetched emails for', address, ':', userEmails)
 
   // Set up SSE
