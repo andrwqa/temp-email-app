@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { SMTPServer } from 'smtp-server'
 import { simpleParser } from 'mailparser'
 import { EventEmitter } from 'events'
+import { Readable } from 'stream';
 
 interface Email {
   id: number;
@@ -120,4 +121,39 @@ export async function POST(request: Request) {
   emailEmitter.emit('newEmail', newEmail)
 
   return NextResponse.json(newEmail)
+}
+
+export async function sseEndpoint(request: Request) {
+  const { searchParams } = new URL(request.url, `https://${request.headers.get('host')}`);
+  const address = searchParams.get('address');
+
+  if (!address) {
+    return new Response('Email address is required', { status: 400 });
+  }
+
+  const stream = new ReadableStream({
+    start(controller) {
+      const newEmailListener = (email: Email) => {
+        if (email.to === address) {
+          controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(email)}\n\n`));
+        }
+      };
+
+      emailEmitter.on('newEmail', newEmailListener);
+
+      // Clean up on close
+      request.signal.addEventListener('abort', () => {
+        emailEmitter.off('newEmail', newEmailListener);
+        controller.close();
+      });
+    }
+  });
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive'
+    }
+  });
 }
