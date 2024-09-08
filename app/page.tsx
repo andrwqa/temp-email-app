@@ -89,7 +89,7 @@ export default function Component() {
     if (storedEmail) {
       setEmail(storedEmail)
     } else {
-      const newEmail = `user${Math.floor(Math.random() * 1000)}@tempemail.com`
+      const newEmail = `user${Math.floor(Math.random() * 1000)}@1timemail.online`
       setEmail(newEmail)
       localStorage.setItem('tempEmail', newEmail)
     }
@@ -116,7 +116,7 @@ export default function Component() {
 
   useEffect(() => {
     if (timeLeft === 0) {
-      const newEmail = `user${Math.floor(Math.random() * 1000)}@tempemail.com`
+      const newEmail = `user${Math.floor(Math.random() * 1000)}@1timemail.online`
       setEmail(newEmail)
       localStorage.setItem('tempEmail', newEmail)
       const newTime = 600 // 10 minutes in seconds
